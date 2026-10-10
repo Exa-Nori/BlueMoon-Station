@@ -703,7 +703,10 @@
 	w_class = WEIGHT_CLASS_NORMAL
 	recoil = 0.5
 	slot_flags = ITEM_SLOT_BELT
-
+	unique_reskin = list(
+		"Police" = list(
+			"icon_state" = "apostle police"
+		))
 
 
 /obj/item/gun/ballistic/revolver/Dies_Irae //сбухам кит на револьвер для переделки под 308, но КРАЙНЕ МЕДЛЕННАЯ стрельба, плюс с двух рук, считай аналог винтовки с карго, но влезает в сумку ценой скорости стрельбы
@@ -721,6 +724,10 @@
 	w_class = WEIGHT_CLASS_NORMAL
 	recoil = 5
 	slot_flags = ITEM_SLOT_BELT
+	unique_reskin = list(
+		"Police" = list(
+			"icon_state" = "dies_irae  police"
+		))
 
 /obj/item/gun/ballistic/revolver/Liturgy //Апгрейд на ревик сбух, чтоб было 18 патрон, енфорсеру всунули 28, ревику можно 18
 	name = "\improper Liturgy"
@@ -737,6 +744,10 @@
 	w_class = WEIGHT_CLASS_NORMAL
 	recoil = 0.5
 	slot_flags = ITEM_SLOT_BELT 
+	unique_reskin = list(
+		"Police" = list(
+			"icon_state" = "liturgy police"
+		))
 
 /obj/item/gun/ballistic/revolver/Passing_Bell //тупа секвоя из нью вегаса антагам, калибр 45 70 давно в игре, но его нахуй никто не использует
 	name = "\improper Passing Bell"
@@ -877,7 +888,7 @@
 
 // Маячок (10 урона + МНОЖЕСТВЕННОЕ вживление имплантов)
 /obj/item/projectile/bullet/judgement_beacon
-	name = "маркерная пуля .357"
+	name = ".44 Magnum glycerine rounds"
 	damage = 10 
 
 /obj/item/projectile/bullet/judgement_beacon/on_hit(atom/target, blocked = FALSE)
@@ -916,10 +927,15 @@
 // ОТКИДЫВАЕТ, ПЛЮС РИКОШЕТ
 // ==========================================
 /obj/item/projectile/bullet/judgement_kinetic_ricochet
-	name = "кинетическая пуля .357"
+	name = ".44 Magnum round"
 	damage = 70
-	ricochet_chance_mod = 1 
-	ricochet_damage_mod = 1 
+	ricochets_max = 4
+	ricochet_chance = 100
+	ricochet_auto_aim_angle = 90
+	ricochet_auto_aim_range = 10
+	ricochet_incidence_leeway = 50
+	ricochet_decay_chance = 1
+	ricochet_decay_damage = 1
 
 /obj/item/projectile/bullet/judgement_kinetic_ricochet/on_hit(atom/target, blocked = 0)
 	. = ..()
@@ -950,12 +966,12 @@
 // Патрончики
 // ==========================================
 /obj/item/ammo_casing/a357/judgement_beacon
-	name = "маркерный патрон Judgement .357"
+	name = ".44 Magnum glycerine rounds"
 	desc = "Особый патрон. Пуля наносит легкий урон и вживляет дистанционную взрывчатку под кожу."
 	projectile_type = /obj/item/projectile/bullet/judgement_beacon
 
 /obj/item/ammo_casing/a357/judgement_kinetic
-	name = "кинетический патрон Judgement .357"
+	name = ".44 magnum kinetic rounds"
 	desc = "Особый патрон. Пуля наносит огромный урон, отскакивает от стен и откидывает цели назад."
 	projectile_type = /obj/item/projectile/bullet/judgement_kinetic_ricochet
 
@@ -974,12 +990,13 @@
 // ==========================================
 /obj/item/gun/ballistic/revolver/judgement
 	name = "\improper Judgement"
-	desc = "Экспериментальная модификация револьвера, имеет встроенный детонатор рядом с кнопкой релиза барабана"
+	desc = "The High Explosive .44 Magnum fires kinetic or glycerine rounds useful for close-quarter combat scenarios. It is the only weapon in the SRPA arsenal certified for use with glycerin rounds. Each slug carries a small, explosive charge that can be remote-detonated from a switch near the trigger guard."
 	icon = 'modular_bluemoon/icons/obj/guns/revolvers.dmi'
-	icon_state = "apostle"
-	item_state = "apostle"
-	lefthand_file = 'modular_bluemoon/icons/mob/inhands/weapons/revolver_lefthand.dmi'
-	righthand_file = 'modular_bluemoon/icons/mob/inhands/weapons/revolver_righthand.dmi'
+	icon_state = "judgement"
+	item_state = "gun"
+	fire_sound = "modular_bluemoon/fluffs/sound/weapon/Judgement.ogg"
+	lefthand_file = 'icons/mob/inhands/weapons/guns_lefthand.dmi'
+	righthand_file = 'icons/mob/inhands/weapons/guns_righthand.dmi'
 	
 	mag_type = /obj/item/ammo_box/magazine/internal/cylinder/judgement
 	
@@ -996,7 +1013,7 @@
 	// Перебираем каждую запись в списке (если моб добавлен 3 раза, он бабахнет 3 раза)
 	for(var/mob/living/carbon/C in active_beacons)
 		if(C && !QDELETED(C))
-			to_chat(C, "<span class='userdanger'>Вживленный внутри вас маячок Judgement детонирует по радиосигналу!</span>")
+			to_chat(C, "<span class='userdanger'>Вживленный внутри вас маячок детонирует по радиосигналу!</span>")
 			
 			var/turf/T = get_turf(C)
 			if(T)
