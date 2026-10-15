@@ -2814,3 +2814,421 @@
 	slot = ITEM_SLOT_ICLOTHING
 	path = /obj/item/clothing/under/donator/bm/mall_cop_chic
 	ckeywhitelist = list("sawwarrr")
+
+// ==========================================
+// 1. ПРЕДМЕТ: КАССЕТНЫЙ ПРОИГРЫВАТЕЛЬ (ОДНОРАЗОВЫЙ)
+// ==========================================
+/obj/item/disco_player
+	name = "retro disco player"
+	desc = "Старый кассетный магнитофон с намертво заклинившей внутри кассетой 'DISCO FEVER'. Из динамиков доносится легкое шипение."
+	icon = 'icons/obj/items_and_weapons.dmi'
+	icon_state = "boombox"
+	w_class = WEIGHT_CLASS_NORMAL
+	var/disco_broken = FALSE 
+
+/obj/item/disco_player/attack_self(mob/living/carbon/human/user)
+	if(!istype(user)) 
+		return
+	if(disco_broken)
+		to_chat(user, "<span class='warning'>Магнитофон полностью сгорел и больше не издает ни звука. Из кассетника пахнет паленой пластмассой.</span>")
+		return
+	if(user.mind && user.mind.martial_art && user.mind.martial_art.name == "Disco Fever")
+		to_chat(user, "<span class='warning'>Вы уже познали истинный дух Диско! Повторный кураж сожжет вам мозг.</span>")
+		return
+
+	user.visible_message("<span class='notice'>[user] с грохотом нажимает на кнопку PLAY. Бешеный ритм диско врывается в окружение!</span>")
+	
+	var/sound/track1 = 'sound/items/bikehorn.ogg'
+	var/sound/track2 = 'sound/weapons/punchmiss.ogg'
+	var/sound/chosen_track = pick(track1, track2)
+	
+	playsound(user, chosen_track, 80, FALSE, range = 5)
+	
+	disco_broken = TRUE
+	name = "broken disco player"
+	desc = "Магнитофон задымился и заклинил прямо во время воспроизведения финального аккорда."
+
+	addtimer(CALLBACK(src, PROC_REF(grant_disco_style), user), 100)
+
+/obj/item/disco_player/proc/grant_disco_style(mob/living/carbon/human/user)
+	if(QDELETED(user) || user.stat == DEAD || !user.mind) 
+		return
+		
+	var/datum/martial_art/disco_fever/DF = new /datum/martial_art/disco_fever()
+	
+	if(hascall(user.mind, "set_martial_art"))
+		call(user.mind, "set_martial_art")(DF)
+	else
+		user.mind.martial_art = DF
+
+	user.visible_message("<span class='hugebold'>Глаза [user] вспыхивают неоновыми диско-огнями! Персонаж делает безумное фанк-па!</span>")
+	to_chat(user, "<span class='boldannounce'>РИТМ ОВЛАДЕВАЕТ ВАМИ! Вы открыли боевое искусство: DISCO FEVER!</span>")
+
+
+// ==========================================
+// 2. БОЕВОЕ ИСКУССТВО DISCO FEVER
+// ==========================================
+/datum/martial_art/disco_fever
+	name = "Disco Fever"
+	id = "disco_fever"
+	block_chance = 50 
+	pugilist = TRUE 
+	display_combos = TRUE 
+	var/last_attack_time = 0
+	var/datum/looping_sound/music_loop
+
+// Исправлено: Временно закомментировали проверку одежды до её создания
+/datum/martial_art/disco_fever/proc/check_outfit(mob/living/carbon/human/H)
+	return FALSE
+	/*
+	if(!istype(H)) 
+		return FALSE
+	var/has_suit = istype(H.wear_suit, /obj/item/clothing/suit/disco)
+	var/has_uniform = istype(H.w_uniform, /obj/item/clothing/under/disco)
+	var/has_shoes = istype(H.shoes, /obj/item/clothing/shoes/disco)
+	var/has_glasses = istype(H.glasses, /obj/item/clothing/glasses/disco)
+	return (has_suit && has_uniform && has_shoes && has_glasses)
+	*/
+
+/datum/martial_art/disco_fever/proc/show_combo_streak(mob/living/carbon/human/A)
+	if(!A || !streak)
+		return
+	var/formatted_streak = ""
+	for(var/i in 1 to length(streak))
+		formatted_streak += "\[[copytext(streak, i, i+1)]] "
+	to_chat(A, "<span class='notice'>Ритм комбо: <b>[formatted_streak]</b></span>")
+
+/datum/martial_art/disco_fever/proc/start_music(mob/living/carbon/human/H)
+	last_attack_time = world.time
+	
+	if(hascall(H, "adjustStaminaLoss"))
+		var/regen_amount = check_outfit(H) ? -5 : -2
+		call(H, "adjustStaminaLoss")(regen_amount)
+
+	if(music_loop) 
+		return
+	
+	var/sound/track1 = 'modular_bluemoon/sound/music/song.ogg'
+	var/sound/track2 = 'modular_bluemoon/sound/music/song2.ogg'
+	var/sound/chosen_track = pick(track1, track2)
+	
+	music_loop = new /datum/looping_sound(H, chosen_track, volume = 50, range = 7)
+	if(hascall(music_loop, "start"))
+		call(music_loop, "start")()
+
+	if(hascall(H, "dance_mix"))
+		call(H, "dance_mix")(3000) 
+	else
+		animate(H, pixel_x = 4, time = 2, loop = -1)
+		animate(pixel_x = -4, time = 2)
+
+	addtimer(CALLBACK(src, PROC_REF(manage_music_fade), H), 3000)
+
+/datum/martial_art/disco_fever/proc/manage_music_fade(mob/living/carbon/human/H)
+	if(!H || !music_loop) 
+		return
+	
+	if(world.time - last_attack_time >= 3000) 
+		if(hascall(music_loop, "stop"))
+			call(music_loop, "stop")()
+		qdel(music_loop)
+		music_loop = null
+		
+		animate(H)
+		H.pixel_x = 0
+		to_chat(H, "<span class='notice'>Пятиминутный диско-марафон завершен. Время перевести дух...</span>")
+	else
+		addtimer(CALLBACK(src, PROC_REF(manage_music_fade), H), 3000 - (world.time - last_attack_time))
+
+/datum/martial_art/disco_fever/proc/check_streak(mob/living/carbon/human/A, mob/living/carbon/human/D)
+	if(findtext(streak, "DDD")) 
+		streak = ""
+		escape_from_traps(A)
+		return TRUE
+	if(findtext(streak, "DDH")) 
+		streak = ""
+		execute_breakdance(A)
+		return TRUE
+	if(findtext(streak, "DGH")) 
+		streak = ""
+		execute_disco_dash_combo(A, D)
+		return TRUE
+	if(findtext(streak, "DHD")) 
+		streak = ""
+		execute_disco_flash(A)
+		return TRUE
+	return FALSE
+
+/datum/martial_art/disco_fever/disarm_act(mob/living/carbon/human/A, mob/living/carbon/human/D)
+	if(!istype(A) || !istype(D) || !can_use(A))
+		return FALSE
+
+	start_music(A)
+	add_to_streak("D", D) 
+	if(check_streak(A, D))
+		return TRUE
+
+	A.do_attack_animation(D, ATTACK_EFFECT_DISARM)
+	
+	if(prob(30) && D.get_active_held_item() && !A.get_active_held_item())
+		var/obj/item/stolen_stuff = D.get_active_held_item()
+		if(D.transferItemToLoc(stolen_stuff, A))
+			A.put_in_hands(stolen_stuff)
+			A.visible_message("<span class='danger'>[A] делает изящное диско-па и незаметно вытаскивает [stolen_stuff] прямо из рук [D]!</span>")
+			playsound(A, 'sound/weapons/punchmiss.ogg', 50, TRUE)
+			return TRUE
+
+	D.visible_message("<span class='danger'>[A] проводит изящную фланговую проходку, дезориентируя [D]!</span>")
+	playsound(D, 'sound/weapons/punchmiss.ogg', 50, TRUE) 
+	show_combo_streak(A)
+	return TRUE
+
+/datum/martial_art/disco_fever/grab_act(mob/living/carbon/human/A, mob/living/carbon/human/D)
+	if(A.a_intent == INTENT_GRAB && A != D && can_use(A))
+		start_music(A)
+		add_to_streak("G", D)
+		if(check_streak(A, D))
+			return TRUE
+		D.grabbedby(A, 1)
+		D.visible_message("<span class='warning'>[A] изящно фиксирует руки [D] в танцевальном замке!</span>")
+		show_combo_streak(A)
+		return TRUE
+	return FALSE
+
+/datum/martial_art/disco_fever/harm_act(mob/living/carbon/human/A, mob/living/carbon/human/D)
+	if(!istype(A) || !istype(D) || !can_use(A))
+		return FALSE
+
+	start_music(A)
+	
+	if(D.stat != CONSCIOUS && A.zone_selected == BODY_ZONE_PRECISE_MOUTH && D.get_bodypart(BODY_ZONE_HEAD))
+		D.visible_message("<span class='bolddanger'>[A] хватает [D] за воротник, готовясь исполнить финальный смертельный танец .</span>")
+		INVOKE_ASYNC(src, PROC_REF(disco_glory_kill), D, A)
+		return TRUE
+
+	add_to_streak("H", D)
+	if(check_streak(A, D))
+		return TRUE
+
+	A.do_attack_animation(D)
+	
+	D.take_bodypart_damage(brute = 20)
+	playsound(get_turf(D), 'sound/weapons/punchmiss.ogg', 50, TRUE)
+	D.visible_message("<span class='danger'>[A] вколачивает тяжелейший диско-хук в [D]!</span>")
+
+	if(findtext(streak, "HHH"))
+		streak = ""
+		var/turf/throw_target = get_edge_target_turf(D, A.dir)
+		D.throw_at(throw_target, 2, 1, A)
+		D.visible_message("<span class='danger'>[A] наносит мощный тройной хук диско, отбрасывая [D] назад!</span>")
+	
+	show_combo_streak(A)
+	return TRUE
+
+/datum/martial_art/disco_fever/proc/escape_from_traps(mob/living/carbon/human/attacker)
+	attacker.visible_message("<span class='hugebold'>[attacker] проворачивает молниеносную чечетку, сбрасывая с себя любые оковы и капканы ногами!</span>")
+	if(attacker.legcuffed)
+		var/obj/item/K = attacker.legcuffed
+		attacker.legcuffed = null 
+		if(K) 
+			K.forceMove(attacker.loc)
+			if(hascall(attacker, "update_inv_legcuffed")) call(attacker, "update_inv_legcuffed")()
+
+	for(var/obj/item/I in attacker.contents)
+		if(findtext("[I.type]", "trap") || findtext("[I.type]", "restraints") || findtext("[I.type]", "snare"))
+			qdel(I)
+	for(var/obj/O in attacker.loc)
+		if(findtext("[O.type]", "trap") || findtext("[O.type]", "snare") || findtext("[O.type]", "bear_trap"))
+			qdel(O)
+
+/datum/martial_art/disco_fever/proc/execute_breakdance(mob/living/carbon/human/attacker)
+	attacker.visible_message("<span class='hugebold'>[attacker] падает на руки и начинает бешено крутиться в брейкдансе! Вспыхивают огни диско!</span>")
+	
+	attacker.add_movespeed_modifier(/datum/movespeed_modifier/breakdance_slowdown)
+	attacker.status_flags |= 4 
+
+	var/matrix/M1 = turn(matrix(), 120)
+	var/matrix/M2 = turn(matrix(), 240)
+	var/matrix/M3 = turn(matrix(), 360)
+	animate(attacker, transform = M1, time = 1, loop = -1)
+	animate(transform = M2, time = 1)
+	animate(transform = M3, time = 1)
+
+	addtimer(CALLBACK(src, PROC_REF(breakdance_tick), attacker, 4), 10)
+
+/datum/martial_art/disco_fever/proc/breakdance_tick(mob/living/carbon/human/attacker, ticks_left)
+	if(!attacker || attacker.stat == DEAD || ticks_left <= 0)
+		stop_breakdance(attacker)
+		return
+
+	var/turf/T = get_turf(attacker)
+	if(T)
+		for(var/mob/living/carbon/M in oview(1, attacker))
+			if(M == attacker || M.stat == DEAD) 
+				continue
+			M.take_bodypart_damage(brute = 15, stamina = 20)
+			M.visible_message("<span class='danger'>[M] получает скользящий удар ногой от бешено крутящегося [attacker]!</span>")
+			playsound(M, 'sound/weapons/punchmiss.ogg', 50, TRUE)
+
+	addtimer(CALLBACK(src, PROC_REF(breakdance_tick), attacker, ticks_left - 1), 10)
+
+/datum/martial_art/disco_fever/proc/stop_breakdance(mob/living/carbon/human/attacker)
+	if(!attacker) 
+		return
+	animate(attacker) 
+	attacker.transform = matrix() 
+	attacker.remove_movespeed_modifier(/datum/movespeed_modifier/breakdance_slowdown)
+	attacker.status_flags &= ~4
+	
+	animate(attacker, pixel_x = 4, time = 2, loop = -1)
+	animate(pixel_x = -4, time = 2)
+
+/datum/martial_art/disco_fever/proc/execute_disco_dash_combo(mob/living/carbon/human/attacker, mob/living/carbon/human/target)
+	if(!attacker || !target || target.stat == DEAD) 
+		return
+		attacker.visible_message("<span class='hugebold'>[attacker] запускает [target] в скользящий полет и устремляется следом по паркету!</span>")
+	var/turf/throw_target = get_ranged_target_turf(target, attacker.dir, 9)
+	target.throw_at(throw_target, 9, 1, attacker)
+	addtimer(CALLBACK(src, PROC_REF(dash_to_target), attacker, target), 2)
+
+/datum/martial_art/disco_fever/proc/dash_to_target(mob/living/carbon/human/attacker, mob/living/carbon/human/target)
+	if(QDELETED(attacker) || QDELETED(target))
+		return
+	var/turf/stop_turf = get_step(target, get_dir(target, attacker))
+	if(stop_turf && !stop_turf.is_blocked_turf())
+		var/old_density = attacker.density
+		attacker.density = FALSE
+		animate(attacker, pixel_x = (stop_turf.x - attacker.x) * 32, pixel_y = (stop_turf.y - attacker.y) * 32, time = 1.5)
+		addtimer(CALLBACK(src, PROC_REF(finish_combo_strike), attacker, target, stop_turf, old_density), 1.5)
+
+/datum/martial_art/disco_fever/proc/finish_combo_strike(mob/living/carbon/human/attacker, mob/living/carbon/human/target, turf/T, old_density)
+	if(!attacker)
+		return
+	attacker.forceMove(T)
+	attacker.pixel_x = 0
+	attacker.pixel_y = 0
+	attacker.density = old_density
+	if(target && target.stat != DEAD && get_dist(attacker, target) <= 1)
+		target.take_bodypart_damage(brute = 25, stamina = 30)
+		playsound(target, 'sound/weapons/punchmiss.ogg', 60, TRUE)
+		target.visible_message("<span class='userdanger'>[attacker] настигает [target] в конце скольжения и впечатывает мощный апперкот!</span>")
+
+/datum/martial_art/disco_fever/proc/execute_disco_flash(mob/living/carbon/human/attacker)
+	attacker.visible_message("<span class='text-danger'><b>[attacker] указывает пальцем в небо! Блеск костюма испускает ослепительную диско-вспышку!</b></span>")
+	var/turf/T = get_turf(attacker)
+	if(T)
+		var/obj/machinery/disco_ball = new /obj/machinery(T)
+		if(disco_ball)
+			disco_ball.name = "giant disco ball"
+			disco_ball.desc = "Он вращается настолько быстро, что его грани ослепляют всё живое."
+			disco_ball.icon = 'icons/obj/lamps.dmi'
+			disco_ball.icon_state = "disco"
+			disco_ball.layer = ABOVE_MOB_LAYER
+			
+			var/obj/item/assembly/flash/F = new /obj/item/assembly/flash(T)
+			if(hascall(F, "flash_cone"))
+				call(F, "flash_cone")(attacker)
+			else if(hascall(F, "AttackSelf"))
+				call(F, "AttackSelf")(attacker)
+			qdel(F)
+			
+			addtimer(CALLBACK(src, PROC_REF(remove_disco_ball), disco_ball), 10)
+
+		for(var/mob/living/carbon/M in oview(3, attacker))
+			if(M == attacker)
+				continue
+			if(hascall(M, "flash_act"))
+				call(M, "flash_act")(5, TRUE)
+
+/datum/martial_art/disco_fever/proc/remove_disco_ball(obj/machinery/disco_ball)
+	if(disco_ball && !QDELETED(disco_ball))
+		qdel(disco_ball)
+
+/datum/martial_art/disco_fever/proc/disco_glory_kill(mob/living/carbon/human/target, mob/living/carbon/human/killer)
+	if(QDELETED(target) || QDELETED(killer) || target.stat == DEAD)
+		return
+	killer.visible_message("<span class='hugebold'>[killer] проводит смертельный диско-финал прямо на груди [target]! Вспыхивает прожектор!</span>")
+	playsound(target.loc, 'sound/weapons/punchmiss.ogg', 70, TRUE)
+	killer.status_flags |= 1
+	var/speed_modifier = check_outfit(killer) ? /datum/movespeed_modifier/disco_glory_blitz : /datum/movespeed_modifier/disco_glory_boost
+	killer.add_movespeed_modifier(speed_modifier)
+	sleep(15)
+	if(QDELETED(target) || QDELETED(killer))
+		killer.status_flags &= ~1
+		killer.remove_movespeed_modifier(speed_modifier)
+		return
+	target.death()
+	sleep(50)
+	if(!QDELETED(killer))
+		killer.status_flags &= ~1
+		killer.remove_movespeed_modifier(speed_modifier)
+
+/datum/martial_art/disco_fever/proc/handle_hit(mob/living/carbon/human/H, mob/living/carbon/human/attacker, atom/movable/weapon, damage, zone)
+	if(!istype(H) || H.stat == DEAD)
+		return FALSE
+	var/is_melee = (!weapon || istype(weapon, /obj/item))
+	if(!is_melee)
+		return FALSE
+	if(H.status_flags & 4)
+		if(istype(attacker) && attacker.get_active_held_item())
+			var/obj/item/W = attacker.get_active_held_item()
+			attacker.transferItemToLoc(W, attacker.loc)
+			attacker.visible_message("<span class='danger'>[H] делает безумный оборот ногами и выбивает [W] из рук [attacker]!</span>")
+			var/obj/item/bodypart/affecting = attacker.get_bodypart("r_arm")
+			if(affecting && hascall(affecting, "dislocate"))
+				call(affecting, "dislocate")()
+		return TRUE
+	if(prob(25) && istype(attacker))
+		var/attack_name = weapon ? "[weapon.name]" : "кулаков"
+		attacker.visible_message("<span class='hugebold'>[H] ловит руку [attacker], заворачивает ее в безумном фанк-пируэте и заставляет [attacker] ударить самого себя с помощью [attack_name]!</span>")
+		var/reflected_damage = damage ? damage : 15
+		attacker.take_bodypart_damage(brute = reflected_damage)
+		playsound(attacker, 'sound/weapons/punchmiss.ogg', 60, TRUE)
+		return TRUE
+	var/block_chance_disco = check_outfit(H) ? 75 : 50
+	if(prob(block_chance_disco))
+		var/list/dodge_phrases = list(
+			"[H] делает идеальную 'лунную походку' назад, уходя от выпада [attacker]!",
+			"[H] падает на шпагат прямо под свистящим ударом [attacker] and плавно поднимается на битах!",
+			"[H] резко выгибает корпус волной назад, заставляя [attacker] рассечь воздух!",
+			"[H] проворачивает оборот на 360 градусов вокруг своей оси, изящно пропуская кулак [attacker] мимо лица!",
+			"[H] ритмично подпрыгивает вбок в стиле электробуги, полностью ломая траекторию атаки [attacker]!",
+			"[H] пафосно прикрывает лицо рукой в диско-жесте, уклоняясь от [attacker] корпусом!"
+		)
+		var/phrase = pick(dodge_phrases)
+		H.visible_message("<span class='notice'>[phrase]</span>")
+		playsound(H, 'sound/weapons/punchmiss.ogg', 50, TRUE)
+		return TRUE
+	return FALSE
+
+// ==========================================
+// 3. ЭФФЕКТЫ И ДАТУМЫ СКОРОСТИ
+// ==========================================
+/obj/effect/breakdance_aoe
+	name = "Disco Spin"
+	var/mob/living/carbon/human/spinner
+	var/datum/martial_art/disco_fever/MA
+
+/obj/effect/breakdance_aoe/New(loc)
+	..()
+	START_PROCESSING(SSfastprocess, src)
+
+/obj/effect/breakdance_aoe/process()
+	if(!spinner || spinner.stat == DEAD || loc != spinner.loc)
+		qdel(src)
+		return
+	for(var/mob/living/carbon/M in oview(1, spinner))
+		if(M == spinner || M.stat == DEAD)
+			continue
+		M.take_bodypart_damage(brute = 15, stamina = 20)
+		M.visible_message("<span class='danger'>[M] получает скользящий удар ногой от бешено крутящегося [spinner]!</span>")
+		playsound(M, 'sound/weapons/punchmiss.ogg', 50, TRUE)
+
+/datum/movespeed_modifier/disco_glory_boost
+	multiplicative_slowdown = -0.5
+
+/datum/movespeed_modifier/disco_glory_blitz
+	multiplicative_slowdown = -1
+
+/datum/movespeed_modifier/breakdance_slowdown
+	multiplicative_slowdown = 1.5
